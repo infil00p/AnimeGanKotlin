@@ -23,7 +23,11 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import java.nio.ByteOrder
-
+import ai.baseweight.sdk.ModelDownloader
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
     private lateinit var imageView: ImageView
@@ -36,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var mainBitmap: Bitmap? = null
     private val API_KEY by lazy { getString(R.string.api_key) }
     private val MODEL_ID by lazy { getString(R.string.model_id) }
+    private val ENCRYPTED_ID by lazy { getString(R.string.encrypted_id) }
     private val API_BASE_URL = "https://stage-api.baseweight.ai/api/models/" // Base URL for the API
 
     private val client = OkHttpClient.Builder()
@@ -89,24 +94,59 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onDoFetchClick() {
-        var external = this.getExternalFilesDir(null)
+        val modelDownloader = ModelDownloader(this, API_KEY)
+        
+        // Show loading toast
+        Toast.makeText(this, "Downloading model...", Toast.LENGTH_SHORT).show()
+        
+        // Launch coroutine for model download
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val modelData = modelDownloader.downloadModel(MODEL_ID, ENCRYPTED_ID)
+                
+                // Create a ByteBuffer from the model data
+                modelData.onSuccess { modelData ->
+                    val modelBuffer = ByteBuffer.allocateDirect(modelData.size)
+                    modelBuffer.put(modelData)
+                    modelBuffer.rewind()
 
-        if (external != null) {
-            downloadModel(external.absolutePath, MODEL_ID, "downloaded_model.onnx")
-        } else {
-            Toast.makeText(this, "External storage not available", Toast.LENGTH_SHORT).show()
-        }        
+                    // Initialize AnimeGan with the model buffer
+                    animeGan = AnimeGan(modelBuffer)
+
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Model downloaded successfully!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                modelData.onFailure { exception ->
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Failed to download model: ${exception.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Log.e("MainActivity", "Failed to download model: ${e.message}")
+                    Toast.makeText(this@MainActivity, "Failed to download model: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun onDoPredictClick() {
-        // TODO: Implement prediction logic
-        if(mainBitmap == null)
-        {
+        if(mainBitmap == null) {
             Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show()
             return
         }
         if(animeGan == null) {
-            animeGan = AnimeGan()
+            Toast.makeText(this, "Model not loaded", Toast.LENGTH_SHORT).show()
+            return
         }
 
         val byteCount = mainBitmap!!.byteCount
@@ -126,105 +166,7 @@ class MainActivity : AppCompatActivity() {
         imageView.setImageBitmap(outputBitmap)
         imageView.invalidate()
 
-        Toast.makeText(this, "Making prediction...", Toast.LENGTH_SHORT).show()
-    }
-
-
-    private fun downloadModel(destinationPath: String, modelId: String, filename: String) {
-        Toast.makeText(this, "Starting model download...", Toast.LENGTH_SHORT).show()
-
-        // First, get the pre-signed URL
-        val urlRequest = Request.Builder()
-            .url("${API_BASE_URL}${modelId}/download".toHttpUrlOrNull()!!)
-            .header("Authorization", "Bearer $API_KEY")
-            .build()
-
-        client.newCall(urlRequest).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity,
-                        "Failed to get download URL: ${e.message}",
-                        Toast.LENGTH_LONG).show()
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                if (!response.isSuccessful) {
-                    runOnUiThread {
-                        Log.e("MainActivity", "Error getting download URL: ${response.code}")
-                        Toast.makeText(this@MainActivity,
-                            "Error getting download URL: ${response.code}",
-                            Toast.LENGTH_LONG).show()
-                    }
-                    return
-                }
-
-                try {
-                    // Parse the JSON response to get the pre-signed URL
-                    val jsonResponse = response.body?.string()
-                    val jsonObject = JSONObject(jsonResponse)
-                    val downloadUrl = jsonObject.getString("download_url")
-
-                    // Now download from the pre-signed URL
-                    val downloadRequest = Request.Builder()
-                        .url(downloadUrl)
-                        .build()
-
-                    client.newCall(downloadRequest).enqueue(object : Callback {
-                        override fun onFailure(call: Call, e: IOException) {
-                            runOnUiThread {
-                                Log.e("MainActivity", "Download failed: ${e.message}")
-                                Toast.makeText(this@MainActivity,
-                                    "Download failed: ${e.message}",
-                                    Toast.LENGTH_LONG).show()
-                            }
-                        }
-
-                        override fun onResponse(call: Call, response: Response) {
-                            if (!response.isSuccessful) {
-                                runOnUiThread {
-                                    Toast.makeText(this@MainActivity,
-                                        "Download error: ${response.code}",
-                                        Toast.LENGTH_LONG).show()
-                                }
-                                return
-                            }
-
-                            response.body?.let { body ->
-                                try {
-                                    val modelFile = File(destinationPath, filename)
-                                    modelFile.outputStream().use { fileOutputStream ->
-                                        body.byteStream().copyTo(fileOutputStream)
-                                    }
-
-                                    // Initialize AnimeGan now that we have the model
-                                    animeGan = AnimeGan()
-                                    runOnUiThread {
-                                        Toast.makeText(this@MainActivity,
-                                            "Model downloaded successfully!",
-                                            Toast.LENGTH_LONG).show()
-                                    }
-                                } catch (e: Exception) {
-                                    runOnUiThread {
-                                        Toast.makeText(this@MainActivity,
-                                            "Failed to save model: ${e.message}",
-                                            Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            }
-                        }
-                    })
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        Log.e("MainActivity", "Failed to parse response: ${e.message}")
-                        Toast.makeText(this@MainActivity,
-                            "Failed to parse response: ${e.message}",
-                            Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        })
+        Toast.makeText(this, "Prediction complete", Toast.LENGTH_SHORT).show()
     }
 
     override fun onActivityResult(reqCode: Int, resultCode: Int, data: Intent?) {
@@ -257,8 +199,6 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 imageView.setImageBitmap(rotatedBitmap);
             }
-
-        } else {
         }
     }
 }
