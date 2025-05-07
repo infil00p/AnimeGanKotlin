@@ -15,13 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import okhttp3.*
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import org.json.JSONObject
-import java.io.File
-import java.io.IOException
 import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit
 import java.nio.ByteOrder
 import ai.baseweight.sdk.ModelDownloader
 import kotlinx.coroutines.CoroutineScope
@@ -41,13 +35,7 @@ class MainActivity : AppCompatActivity() {
     private val API_KEY by lazy { getString(R.string.api_key) }
     private val MODEL_ID by lazy { getString(R.string.model_id) }
     private val ENCRYPTED_ID by lazy { getString(R.string.encrypted_id) }
-    private val API_BASE_URL = "https://stage-api.baseweight.ai/api/models/" // Base URL for the API
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val API_BASE_URL = "http://192.168.0.176:8000/api" // Base URL for the API
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,7 +82,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onDoFetchClick() {
-        val modelDownloader = ModelDownloader(this, API_KEY)
+        val modelDownloader = ModelDownloader(this, API_KEY, API_BASE_URL)
         
         // Show loading toast
         Toast.makeText(this, "Downloading model...", Toast.LENGTH_SHORT).show()
