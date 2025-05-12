@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
     private val API_KEY by lazy { getString(R.string.api_key) }
     private val MODEL_ID by lazy { getString(R.string.model_id) }
     private val ENCRYPTED_ID by lazy { getString(R.string.encrypted_id) }
-    private val API_BASE_URL = "http://192.168.0.176:8000/api" // Base URL for the API
+    private val API_BASE_URL = "https://api.baseweight.ai/api" // Base URL for the API
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,6 +111,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 modelData.onFailure { exception ->
                     withContext(Dispatchers.Main) {
+                        Log.e("MainActivity", "Failed to download model: ${exception.message}")
                         Toast.makeText(
                             this@MainActivity,
                             "Failed to download model: ${exception.message}",
