@@ -11,8 +11,9 @@ import java.io.File
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.Collections
+import ai.baseweight.sdk.ModelDownloader;
 
-class AnimeGan {
+class AnimeGan(private val modelBuffer: ByteBuffer) {
 
     val env = OrtEnvironment.getEnvironment()
     lateinit var session : OrtSession
@@ -20,19 +21,8 @@ class AnimeGan {
 
     init {                
         try {
-            val modelPath = "/storage/emulated/0/Android/data/ai.baseweight.animegan/files/downloaded_model.onnx"
-            val modelFile = File(modelPath)
-
             sessionOptions = OrtSession.SessionOptions()
-
-
-            if (!modelFile.exists()) {
-                Log.e("AnimeGan", "Model file does not exist at $modelPath")
-                throw OrtException("Model file does not exist at $modelPath")
-            }
-            // For some reason ORT in Java can't read this file, pass it through a ByteBuffer to ORT
-            val modelBytes = modelFile.readBytes()
-            session = env.createSession(modelBytes, sessionOptions);
+            session = env.createSession(modelBuffer, sessionOptions)
         }
         catch (e: OrtException) {
             Log.d("AnimeGan", "OrtException: " + e.message)

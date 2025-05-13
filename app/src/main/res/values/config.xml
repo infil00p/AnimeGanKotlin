@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="api_key">Z3zh9E4l_quBpjLJ55Hv-YFIXPFCXHwK0a9bT1MQHzg</string>
-    <string name="model_id">e5198e87-365c-430a-a282-36b622223631</string>
+    <string name="api_key">1Nly86urxCG0r5dKSODIgr04uIX6vPXtIl8cvmjl938</string>
+    <string name="model_id">1fd40f44-d1c7-40ef-bef9-bcc5a685191e</string>
+    <string name="encrypted_id">aa1bc1fc-e020-416e-9ae6-fb28c81b6e95</string>
 </resources>
